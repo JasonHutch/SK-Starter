@@ -1,0 +1,10 @@
+[*.cs]
+
+# SKEXP0130: Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+dotnet_diagnostic.SKEXP0130.severity = none
+
+# SKEXP0050: Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+dotnet_diagnostic.SKEXP0050.severity = none
+
+# SKEXP0110: Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+dotnet_diagnostic.SKEXP0110.severity = none

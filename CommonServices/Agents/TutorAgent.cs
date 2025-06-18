@@ -19,11 +19,11 @@ namespace CommonServices.Agents
         private readonly MemoryProvider _memoryProvider;
         private readonly PromptRenderer _promptRenderer;
 
-        public TutorAgent(string modelId, string apiKey, string braveApiKey)
+        public TutorAgent(string modelId, string openaiApiKey, string braveApiKey, string mem0ApiKey)
         {
             // Create kernel with OpenAI chat completion
             var builder = Kernel.CreateBuilder();
-            builder.AddOpenAIChatCompletion(modelId, apiKey);
+            builder.AddOpenAIChatCompletion(modelId, openaiApiKey);
             builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
             
             _kernel = builder.Build();
@@ -34,7 +34,7 @@ namespace CommonServices.Agents
             _kernel.Plugins.Add(searchPlugin);
 
             // Initialize services
-            _memoryProvider = new MemoryProvider();
+            _memoryProvider = new MemoryProvider(mem0ApiKey);
             _promptRenderer = new PromptRenderer(_kernel);
 
             // Initialize the agent (async initialization will be handled separately)

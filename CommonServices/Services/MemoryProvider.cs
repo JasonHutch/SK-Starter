@@ -8,14 +8,14 @@ namespace CommonServices.Services
     {
         private readonly Mem0Provider mem0Provider;
 
-        public MemoryProvider()
+        public MemoryProvider(string mem0Key)
         {
             var httpClient = new HttpClient()
             {
                 BaseAddress = new Uri("https://api.mem0.ai")
             };
 
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Token", "m0-i4Npu2cZFkzVGSlXMSvzYt5uMpivSp8egJfPXR0b");
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Token", mem0Key);
 
             this.mem0Provider = new Mem0Provider(httpClient, options: new()
             {

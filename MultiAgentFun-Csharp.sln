@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TutorAgent", "TutorAgent\TutorAgent.csproj", "{072B95A9-FB7F-789A-AFD0-39FC86FD17C8}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentAPI", "AgentAPI\AgentAPI.csproj", "{D62212CA-9867-4B6D-9045-8CA909311F54}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommonServices", "CommonServices\CommonServices.csproj", "{F343E965-AD79-40AF-97B7-FDAA8FEFCA0A}"
@@ -19,18 +17,6 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{072B95A9-FB7F-789A-AFD0-39FC86FD17C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{072B95A9-FB7F-789A-AFD0-39FC86FD17C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{072B95A9-FB7F-789A-AFD0-39FC86FD17C8}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{072B95A9-FB7F-789A-AFD0-39FC86FD17C8}.Debug|x64.Build.0 = Debug|Any CPU
-		{072B95A9-FB7F-789A-AFD0-39FC86FD17C8}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{072B95A9-FB7F-789A-AFD0-39FC86FD17C8}.Debug|x86.Build.0 = Debug|Any CPU
-		{072B95A9-FB7F-789A-AFD0-39FC86FD17C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{072B95A9-FB7F-789A-AFD0-39FC86FD17C8}.Release|Any CPU.Build.0 = Release|Any CPU
-		{072B95A9-FB7F-789A-AFD0-39FC86FD17C8}.Release|x64.ActiveCfg = Release|Any CPU
-		{072B95A9-FB7F-789A-AFD0-39FC86FD17C8}.Release|x64.Build.0 = Release|Any CPU
-		{072B95A9-FB7F-789A-AFD0-39FC86FD17C8}.Release|x86.ActiveCfg = Release|Any CPU
-		{072B95A9-FB7F-789A-AFD0-39FC86FD17C8}.Release|x86.Build.0 = Release|Any CPU
 		{D62212CA-9867-4B6D-9045-8CA909311F54}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D62212CA-9867-4B6D-9045-8CA909311F54}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D62212CA-9867-4B6D-9045-8CA909311F54}.Debug|x64.ActiveCfg = Debug|Any CPU

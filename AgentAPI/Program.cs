@@ -1,7 +1,42 @@
 using CommonServices.Services;
 using CommonServices.Agents;
+using OpenTelemetry.Resources;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
+using Azure.Monitor.OpenTelemetry.Exporter;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var connectionString = builder.Configuration["ApplicationInsights:ConnectionString"] 
+    ?? throw new InvalidOperationException("Application Insights connection string not configured");
+
+var resourceBuilder = ResourceBuilder
+    .CreateDefault()
+    .AddService("TelemetryApplicationInsightsQuickstart");
+
+AppContext.SetSwitch("Microsoft.SemanticKernel.Experimental.GenAI.EnableOTelDiagnosticsSensitive", true);
+
+using var traceProvider = Sdk.CreateTracerProviderBuilder()
+    .SetResourceBuilder(resourceBuilder)
+    .AddSource("Microsoft.SemanticKernel*")
+    .AddAzureMonitorTraceExporter(options => options.ConnectionString = connectionString)
+    .Build();
+
+using var meterProvider = Sdk.CreateMeterProviderBuilder()
+    .SetResourceBuilder(resourceBuilder)
+    .AddMeter("Microsoft.SemanticKernel*")
+    .AddAzureMonitorMetricExporter(options => options.ConnectionString = connectionString)
+    .Build();
+
+// Configure OpenTelemetry logging with ASP.NET Core's built-in logging
+builder.Logging.AddOpenTelemetry(options =>
+{
+    options.SetResourceBuilder(resourceBuilder);
+    options.AddAzureMonitorLogExporter(options => options.ConnectionString = connectionString);
+    options.IncludeFormattedMessage = true;
+    options.IncludeScopes = true;
+});
 
 // Add services to the container
 builder.Services.AddControllers();

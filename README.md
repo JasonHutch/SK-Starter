@@ -1,4 +1,4 @@
-# Azure AI Foundry Multi-Agent C# Starter
+# Semantic Kernel C# Starter
 
 A comprehensive C# starter template demonstrating Azure AI Foundry agent integration with real-time SignalR communication and multi-agent orchestration capabilities.
 
@@ -62,15 +62,6 @@ Update `AgentAPI/appsettings.json` with your configuration:
   }
 }
 ```
-
-**Required Configuration:**
-- `AIFoundry.Endpoint` - Your Azure AI Foundry project endpoint
-
-**Optional Configuration:**
-- `ApplicationInsights.ConnectionString` - For telemetry (recommended)
-- `OpenAI.ApiKey` & `OpenAI.ModelId` - For tutor/quiz agents
-- `Brave.ApiKey` - For web search capabilities
-- `Mem0.ApiKey` - For memory persistence
 
 ### 4. Azure Authentication
 
@@ -222,42 +213,6 @@ The API includes CORS configuration for frontend frameworks. Common origins are 
 // Additional ports as needed
 ```
 
-### Example Frontend Integration
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <script src="https://unpkg.com/@microsoft/signalr@latest/dist/browser/signalr.js"></script>
-</head>
-<body>
-    <div id="messages"></div>
-    <input type="text" id="messageInput" placeholder="Type your message...">
-    <button onclick="sendMessage()">Send</button>
-    
-    <script>
-        const connection = new signalR.HubConnectionBuilder()
-            .withUrl("http://localhost:5038/chathub")
-            .build();
-
-        connection.start().then(() => {
-            connection.invoke("JoinSession", "demo-session");
-        });
-
-        connection.on("ReceiveStreamingChunk", (chunk) => {
-            document.getElementById("messages").innerHTML += chunk;
-        });
-
-        function sendMessage() {
-            const message = document.getElementById("messageInput").value;
-            connection.invoke("ProcessMessage", message, "demo-session", "HandoffOrchestration");
-            document.getElementById("messageInput").value = "";
-        }
-    </script>
-</body>
-</html>
-```
-
 ## 📊 Monitoring & Telemetry
 
 The application includes comprehensive telemetry via Azure Application Insights:
@@ -266,46 +221,6 @@ The application includes comprehensive telemetry via Azure Application Insights:
 - **Metrics**: Agent performance and usage
 - **Logs**: Detailed application logging
 - **Dependencies**: External API calls
-
-## 🛡️ Security Considerations
-
-- API keys should be stored in Azure Key Vault for production
-- Use Managed Identity when deploying to Azure
-- CORS origins should be restricted in production
-- Enable HTTPS in production environments
-
-## 🚀 Deployment
-
-### Azure App Service
-
-1. Create an Azure App Service
-2. Configure Application Settings with your API keys
-3. Enable Managed Identity
-4. Deploy using:
-
-```bash
-dotnet publish -c Release
-# Deploy publish folder to Azure App Service
-```
-
-### Docker
-
-```dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
-WORKDIR /app
-EXPOSE 80
-
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
-WORKDIR /src
-COPY . .
-RUN dotnet restore
-RUN dotnet publish -c Release -o /app/publish
-
-FROM base AS final
-WORKDIR /app
-COPY --from=build /app/publish .
-ENTRYPOINT ["dotnet", "AgentAPI.dll"]
-```
 
 ## 🤝 Contributing
 
@@ -325,15 +240,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Semantic Kernel Documentation](https://learn.microsoft.com/en-us/semantic-kernel/)
 - [SignalR Documentation](https://docs.microsoft.com/en-us/aspnet/core/signalr/)
 - [.NET 9 Documentation](https://docs.microsoft.com/en-us/dotnet/)
-
-## 📞 Support
-
-If you encounter any issues or have questions:
-
-1. Check the [Issues](../../issues) page
-2. Create a new issue with detailed information
-3. Include your configuration (without sensitive data)
-4. Provide error logs and steps to reproduce
 
 ---
 

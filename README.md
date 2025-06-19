@@ -7,11 +7,7 @@ A comprehensive C# starter template demonstrating Azure AI Foundry agent integra
 - **Multi-Agent Support**: Azure AI Foundry agents, OpenAI-powered tutor and quiz agents
 - **Agent Orchestration**: Intelligent handoff between agents using Semantic Kernel
 - **Real-time Communication**: SignalR hub for streaming responses
-- **Multiple Agent Modes**: 
-  - `AzureOnly` - Azure AI Foundry agent only
-  - `TutorOnly` - Educational tutor agent
-  - `QuizOnly` - Quiz generation agent  
-  - `HandoffOrchestration` - Intelligent agent switching
+- **Multiple Agent Modes**: Examples of ChatCompletion Agent, Azure AI Foundry Agent, and handoff orchestration 
 - **Azure Integration**: Built-in Application Insights telemetry and monitoring
 - **Modern .NET**: Built on .NET 9 with nullable reference types
 - **CORS Ready**: Pre-configured for frontend integration
@@ -181,20 +177,16 @@ MultiAgentFun-Csharp/
 
 ## 🔧 Agent Modes Explained
 
-### AzureOnly Mode
+### Azure AI Foundry Mode
 - Uses Azure AI Foundry deployed models
 - Best for general conversational AI
 - Leverages Azure's managed infrastructure
 
-### TutorOnly Mode  
-- Educational tutor specializing in complex concepts
-- Uses web search for latest information
-- Customizable for different subjects
-
-### QuizOnly Mode
-- Generates quizzes and assessments
-- Creates test questions based on topics
-- Integrates with web search for current content
+### Chat Completion Agent Mode  
+- OpenAI-powered chat completion agent with specialized educational prompting
+- Integrates Brave search for real-time web information retrieval
+- Uses mem0 for persistent memory and conversation context
+- Monitored via Application Insights telemetry
 
 ### HandoffOrchestration Mode
 - Intelligently routes messages between agents
@@ -229,10 +221,6 @@ The application includes comprehensive telemetry via Azure Application Insights:
 3. Commit your changes: `git commit -m 'Add amazing feature'`
 4. Push to the branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🔗 Resources
 

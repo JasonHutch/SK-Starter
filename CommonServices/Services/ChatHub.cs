@@ -107,39 +107,17 @@ namespace CommonServices.Services
 
                 if (tutorAgent != null && quizAgent != null)
                 {
-                    // Define response callback to handle agent responses
-                    ValueTask ResponseCallback(ChatMessageContent message)
-                    {
-                        if (message.Content != null)
-                        {
-                            return new ValueTask(Clients.Group(sessionId).SendAsync("ReceiveStreamingChunk", message.Content));
-                        }
-                        return ValueTask.CompletedTask;
-                    }
-
-                    // Define interactive callback for human-in-the-loop scenarios
-                    ValueTask<ChatMessageContent> InteractiveCallback()
-                    {
-                        // For SignalR, we'll use the original message as the user input
-                        // In a real implementation, you might want to wait for additional user input
-                        return new ValueTask<ChatMessageContent>(new ChatMessageContent(AuthorRole.User, message));
-                    }
-
                     // Set up handoff relationships
                     var handoffs = OrchestrationHandoffs
                         .StartWith(tutorAgent)
                         .Add(tutorAgent, quizAgent, "Transfer to quiz agent when creating assessments or user requests quizzes")
                         .Add(quizAgent, tutorAgent, "Transfer back to tutor for explanations after quiz or for educational content");
 
-                    // Create handoff orchestration
+                    // Create handoff orchestration without InteractiveCallback to prevent message loops
                     var orchestration = new HandoffOrchestration(
                         handoffs,
                         tutorAgent,
-                        quizAgent)
-                    {
-                        InteractiveCallback = InteractiveCallback,
-                        ResponseCallback = ResponseCallback,
-                    };
+                        quizAgent);
 
                     // Start the runtime
                     var runtime = new InProcessRuntime();
@@ -149,14 +127,24 @@ namespace CommonServices.Services
                     {
                         await Clients.Group(sessionId).SendAsync("StreamingStarted");
 
-                        // Invoke the orchestration
+                        // Invoke the orchestration and wait for completion
                         var orchestrationResult = await orchestration.InvokeAsync(message, runtime);
                         
-                        // Get the final result
+                        // Get the final result from the orchestration
                         var result = await orchestrationResult.GetValueAsync();
                         
+                        // Send only the final orchestration result as streaming chunks
                         if (!string.IsNullOrEmpty(result))
                         {
+                            // Split the final result into words for a streaming effect
+                            var words = result.Split(' ');
+                            foreach (var word in words)
+                            {
+                                await Clients.Group(sessionId).SendAsync("ReceiveStreamingChunk", word + " ");
+                                await Task.Delay(50); // Small delay for streaming effect
+                            }
+                            
+                            // Also send as final response
                             await Clients.Group(sessionId).SendAsync("onFinalResponse", result);
                         }
 

@@ -107,7 +107,7 @@ namespace CommonServices.Agents
                 throw new InvalidOperationException("Agent not initialized. Call InitializeAsync() first.");
             }
 
-            var message = new Microsoft.SemanticKernel.ChatMessageContent(AuthorRole.User, userInput);
+            var message = new ChatMessageContent(AuthorRole.User, userInput);
 
             DateTime now = DateTime.Now;
             KernelArguments arguments = new()

@@ -59,10 +59,21 @@ builder.Services.AddSingleton<TutorAgent>(serviceProvider =>
     var openAiApiKey = configuration["OpenAI:ApiKey"] ?? throw new InvalidOperationException("OpenAI API key not configured");
     var braveApiKey = configuration["Brave:ApiKey"] ?? throw new InvalidOperationException("Brave API key not configured");
     var mem0ApiKey = configuration["Mem0:ApiKey"] ?? throw new InvalidOperationException("Mem0 API key not configured");
-    
+
     var agent = new TutorAgent(modelId, openAiApiKey, braveApiKey, mem0ApiKey);
     // Initialize the agent - we'll do this async in the hub
     return agent;
+});
+
+builder.Services.AddSingleton<AzureAgent>(serviceProvider =>
+{
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    var foundryEndpoint = configuration["AIFoundry:Endpoint"] ?? throw new InvalidOperationException("Azure AI Foundry endpoint not configured");
+    var modelId = configuration["OpenAI:ModelId"] ?? "gpt-4o-mini";
+
+    var azureAgent = new AzureAgent(modelId, foundryEndpoint);
+
+    return azureAgent;
 });
 
 // Add CORS for development

@@ -7,11 +7,13 @@ namespace CommonServices.Services
     public class ChatHub : Hub
     {
         private readonly TutorAgent _tutorAgent;
+        private readonly AzureAgent _azureAgent;
         private static readonly Dictionary<string, bool> _initializedSessions = new();
 
-        public ChatHub(TutorAgent tutorAgent)
+        public ChatHub(TutorAgent tutorAgent, AzureAgent azureAgent)
         {
             _tutorAgent = tutorAgent;
+            _azureAgent = azureAgent;
         }
 
         public override Task OnConnectedAsync()
@@ -35,6 +37,7 @@ namespace CommonServices.Services
                 if (!_initializedSessions.ContainsKey(sessionId))
                 {
                     await _tutorAgent.InitializeAsync();
+                    await _azureAgent.InitializeAsync();
                     _initializedSessions[sessionId] = true;
                 }
 
@@ -144,13 +147,16 @@ namespace CommonServices.Services
         private async Task ProcessWithAIStreaming(string message, string sessionId)
         {
             var fullResponse = new System.Text.StringBuilder();
+
+            //Comment and uncomment foreach loop to send requets to different agents
             
-            await foreach (var token in _tutorAgent.GetTokenStreamAsync(message))
+            await foreach (var token in _azureAgent.GetTokenStreamAsync(message))
+            //await foreach (var token in _tutorAgent.GetTokenStreamAsync(message))
             {
                 // Send each token as it arrives for real-time effect
                 await Clients.Group(sessionId).SendAsync("ReceiveStreamingChunk", token);
                 fullResponse.Append(token);
-                
+
                 // Optional: Add small delay to see streaming effect (remove in production)
                 await Task.Delay(10);
             }

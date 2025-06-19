@@ -1,34 +1,30 @@
-using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
-using Microsoft.SemanticKernel.Data;
-using Microsoft.SemanticKernel.Plugins.Web.Brave;
-using CommonServices.Services;
 using Azure.AI.Agents.Persistent;
 using Microsoft.SemanticKernel.Agents.AzureAI;
 using Azure.Identity;
 
 namespace CommonServices.Agents
 {
-    public class AzureAgent
+    public class AzureChatAgent
     {
         private AzureAIAgent? _azureAIAgent;
         private AzureAIAgentThread? _thread;
-
         private readonly string _modelId;
-
         private readonly PersistentAgentsClient _client;
-
-        public AzureAgent(string modelId, string foundryEndpoint)
+        public AzureChatAgent(string modelId, string foundryEndpoint)
         {
             _client = AzureAIAgent.CreateAgentsClient(foundryEndpoint, new AzureCliCredential());
             _modelId = modelId;
         }
 
-        public async Task InitializeAsync()
+        public AzureAIAgent? GetAgent()
+        {
+            return _azureAIAgent ?? null;
+        }
+
+        //TODO: Accept agent configured in Azure, default to NBA agent if none provided
+        public async Task<AzureAIAgent> InitializeAsync()
         {
             PersistentAgent definition = await _client.Administration.CreateAgentAsync(
                 model: _modelId,
@@ -40,6 +36,7 @@ namespace CommonServices.Agents
             _azureAIAgent = new(definition, _client);
             _thread = new(_azureAIAgent.Client);
 
+            return _azureAIAgent;
         }
 
         public async IAsyncEnumerable<ChatMessageContent> GetResponseAsync(string userInput)

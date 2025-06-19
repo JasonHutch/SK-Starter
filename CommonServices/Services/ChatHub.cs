@@ -1,19 +1,39 @@
 using Microsoft.AspNetCore.SignalR;
 using CommonServices.Agents;
+using Microsoft.Extensions.Configuration;
+using Microsoft.SemanticKernel.Agents.Orchestration.Handoff;
+using Microsoft.SemanticKernel.Agents.Runtime.InProcess;
+using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel;
 
 namespace CommonServices.Services
 {
+    public enum AgentMode
+    {
+        AzureOnly,
+        TutorOnly, 
+        QuizOnly,
+        HandoffOrchestration
+    }
+
     public class ChatHub : Hub
     {
-        private readonly TutorAgent _tutorAgent;
-        private readonly AzureAgent _azureAgent;
+        private readonly Func<string, string, string, string, string, string, ChatAgent> _chatAgentFactory;
+        private readonly Func<string, string, AzureChatAgent> _azureChatAgentFactory;
+        private readonly IConfiguration _configuration;
         private static readonly Dictionary<string, bool> _initializedSessions = new();
+        private static readonly Dictionary<string, AzureChatAgent> _azureAgents = new();
+        private static readonly Dictionary<string, ChatAgent> _tutorAgents = new();
+        private static readonly Dictionary<string, ChatAgent> _quizAgents = new();
 
-        public ChatHub(TutorAgent tutorAgent, AzureAgent azureAgent)
+        public ChatHub(
+            Func<string, string, string, string, string, string, ChatAgent> chatAgentFactory,
+            Func<string, string, AzureChatAgent> azureChatAgentFactory,
+            IConfiguration configuration)
         {
-            _tutorAgent = tutorAgent;
-            _azureAgent = azureAgent;
+            _azureChatAgentFactory = azureChatAgentFactory;
+            _chatAgentFactory = chatAgentFactory;
+            _configuration = configuration;
         }
 
         public override Task OnConnectedAsync()
@@ -28,26 +48,46 @@ namespace CommonServices.Services
             return base.OnDisconnectedAsync(exception);
         }
 
-        public async Task ProcessMessage(string message, string sessionId)
+        public async Task ProcessMessage(string message, string sessionId, string agentMode = "AzureOnly")
         {
-            Console.WriteLine("MESSAGE");
             try
             {
-                // Ensure agent is initialized for this session
-                if (!_initializedSessions.ContainsKey(sessionId))
+                // Parse string to enum
+                if (!Enum.TryParse<AgentMode>(agentMode, true, out var parsedMode))
                 {
-                    await _tutorAgent.InitializeAsync();
-                    await _azureAgent.InitializeAsync();
-                    _initializedSessions[sessionId] = true;
+                    parsedMode = AgentMode.AzureOnly; // Default fallback
                 }
 
-                // Step 1: Signal streaming is starting
+                // Ensure agents are initialized for this session
+                if (!_initializedSessions.ContainsKey(sessionId))
+                {
+                    await InitializeAgentsForSession(sessionId);
+                }
+
+                var azureAgent = _azureAgents[sessionId];
+                var tutorAgent = _tutorAgents[sessionId];
+                var quizAgent = _quizAgents[sessionId];
+
                 await Clients.Group(sessionId).SendAsync("StreamingStarted");
-                
-                // Step 2: Process with your AI (Semantic Kernel)
-                await ProcessWithAIStreaming(message, sessionId);
-                
-                // Step 3: Signal streaming is complete
+
+                switch (parsedMode)
+                {
+                    case AgentMode.AzureOnly:
+                        await ProcessWithAIStreaming(sessionId, azureAgent.GetTokenStreamAsync(message));
+                        break;
+                    case AgentMode.TutorOnly:
+                        await ProcessWithAIStreaming(sessionId, tutorAgent.GetTokenStreamAsync(message));
+                        break;
+                    case AgentMode.QuizOnly:
+                        await ProcessWithAIStreaming(sessionId, quizAgent.GetTokenStreamAsync(message));
+                        break;
+                    case AgentMode.HandoffOrchestration:
+                        await ProcessMessageWithHandoff(message, sessionId);
+                        return; // Don't send StreamingCompleted twice
+                    default:
+                        throw new ArgumentException("Invalid AgentMode", nameof(agentMode));
+                }
+
                 await Clients.Group(sessionId).SendAsync("StreamingCompleted");
             }
             catch (Exception ex)
@@ -58,100 +98,152 @@ namespace CommonServices.Services
             }
         }
 
-        // private async Task ProcessWithAI(string message, string sessionId)
-        // {
-        //     var responses = new List<string>();
+        private async Task ProcessMessageWithHandoff(string message, string sessionId)
+        {
+            try
+            {
+                var tutorAgent = _tutorAgents[sessionId].GetAgent();
+                var quizAgent = _quizAgents[sessionId].GetAgent();
 
-        //     await foreach (var response in _tutorAgent.GetResponseAsync(message))
-        //     {
-        //         // Debug: Log response details
-        //         Console.WriteLine($"Response Content: {response.Content}");
-        //         Console.WriteLine($"Response Role: {response.Role}");
-        //         Console.WriteLine($"Response ModelId: {response.ModelId}");
-        //         Console.WriteLine($"Response Metadata Count: {response.Metadata?.Count}");
-                
-        //         if (response.Metadata != null)
-        //         {
-        //             foreach (var item in response.Metadata)
-        //             {
-        //                 Console.WriteLine($"Metadata Key: {item.Key}, Value: {item.Value}");
-        //             }
-        //         }
+                if (tutorAgent != null && quizAgent != null)
+                {
+                    // Define response callback to handle agent responses
+                    ValueTask ResponseCallback(ChatMessageContent message)
+                    {
+                        if (message.Content != null)
+                        {
+                            return new ValueTask(Clients.Group(sessionId).SendAsync("ReceiveStreamingChunk", message.Content));
+                        }
+                        return ValueTask.CompletedTask;
+                    }
 
-        //         // Check if this is a tool call response
-        //         bool isToolCall = false;
-        //         string functionName = "Unknown";
-        //         string functionArgs = "";
-        //         string functionResult = "";
+                    // Define interactive callback for human-in-the-loop scenarios
+                    ValueTask<ChatMessageContent> InteractiveCallback()
+                    {
+                        // For SignalR, we'll use the original message as the user input
+                        // In a real implementation, you might want to wait for additional user input
+                        return new ValueTask<ChatMessageContent>(new ChatMessageContent(AuthorRole.User, message));
+                    }
 
-        //         // Method 1: Check if role is "tool" (for function results)
-        //         if (string.Equals(response.Role.ToString(), "tool", StringComparison.OrdinalIgnoreCase))
-        //         {
-        //             isToolCall = true;
-        //             functionResult = response.Content ?? "";
-                    
-        //             // Try to extract function name from metadata
-        //             if (response.Metadata?.ContainsKey("Function") == true)
-        //             {
-        //                 functionName = response.Metadata["Function"]?.ToString() ?? "Unknown";
-        //             }
-        //             if (response.Metadata?.ContainsKey("Arguments") == true)
-        //             {
-        //                 functionArgs = response.Metadata["Arguments"]?.ToString() ?? "";
-        //             }
-        //         }
-                
-        //         // Method 2: Check for function call information in metadata
-        //         else if (response.Metadata?.ContainsKey("Function") == true)
-        //         {
-        //             isToolCall = true;
-        //             functionName = response.Metadata["Function"]?.ToString() ?? "Unknown";
-        //             functionArgs = response.Metadata.ContainsKey("Arguments") ? response.Metadata["Arguments"]?.ToString() : "";
-        //             functionResult = response.Content ?? "";
-        //         }
+                    // Set up handoff relationships
+                    var handoffs = OrchestrationHandoffs
+                        .StartWith(tutorAgent)
+                        .Add(tutorAgent, quizAgent, "Transfer to quiz agent when creating assessments or user requests quizzes")
+                        .Add(quizAgent, tutorAgent, "Transfer back to tutor for explanations after quiz or for educational content");
 
-        //         if (isToolCall)
-        //         {
-        //             // Send tool call update to the session group
-        //             await Clients.Group(sessionId).SendAsync("onToolCall", new
-        //             {
-        //                 tool = functionName,
-        //                 input = functionArgs,
-        //                 output = functionResult
-        //             });
-                    
-        //             Console.WriteLine($"Tool call sent: {functionName}");
-        //         }
+                    // Create handoff orchestration
+                    var orchestration = new HandoffOrchestration(
+                        handoffs,
+                        tutorAgent,
+                        quizAgent)
+                    {
+                        InteractiveCallback = InteractiveCallback,
+                        ResponseCallback = ResponseCallback,
+                    };
 
-        //         // Stream response chunks as they come
-        //         if (!string.IsNullOrEmpty(response.Content))
-        //         {
-        //             responses.Add(response.Content);
-                    
-        //             // Send streaming chunk to frontend
-        //             await Clients.Group(sessionId).SendAsync("ReceiveStreamingChunk", response.Content);
-        //         }
-        //     }
+                    // Start the runtime
+                    var runtime = new InProcessRuntime();
+                    await runtime.StartAsync();
 
-        //     // Send final complete response
-        //     var finalResponse = string.Join(" ", responses);
-        //     if (!string.IsNullOrEmpty(finalResponse))
-        //     {
-        //         await Clients.Group(sessionId).SendAsync("onFinalResponse", finalResponse);
-        //     }
-        // }
+                    try
+                    {
+                        await Clients.Group(sessionId).SendAsync("StreamingStarted");
 
-        /// <summary>
-        /// Real-time token streaming version - faster but no tool call detection
-        /// </summary>
-        private async Task ProcessWithAIStreaming(string message, string sessionId)
+                        // Invoke the orchestration
+                        var orchestrationResult = await orchestration.InvokeAsync(message, runtime);
+                        
+                        // Get the final result
+                        var result = await orchestrationResult.GetValueAsync();
+                        
+                        if (!string.IsNullOrEmpty(result))
+                        {
+                            await Clients.Group(sessionId).SendAsync("onFinalResponse", result);
+                        }
+
+                        await Clients.Group(sessionId).SendAsync("StreamingCompleted");
+                    }
+                    finally
+                    {
+                        // Clean up runtime
+                        await runtime.DisposeAsync();
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException("One or more agents are not properly initialized");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing message with handoff: {ex.Message}");
+                await Clients.Group(sessionId).SendAsync("onError", new { error = ex.Message });
+                await Clients.Group(sessionId).SendAsync("StreamingCompleted");
+            }
+        }
+
+        private async Task InitializeAgentsForSession(string sessionId)
+        {
+            var modelId = _configuration["OpenAI:ModelId"] ?? "gpt-4o-mini";
+            var openAiApiKey = _configuration["OpenAI:ApiKey"] ?? string.Empty;
+            var braveApiKey = _configuration["Brave:ApiKey"] ?? string.Empty;
+            var mem0ApiKey = _configuration["Mem0:ApiKey"] ?? string.Empty;
+            var name = _configuration["ChatAgent:Name"] ?? "DefaultAgent";
+            var instructions = _configuration["ChatAgent:Instructions"] ?? "Default instructions.";
+            var foundryEndpoint = _configuration["AIFoundry:Endpoint"] ?? string.Empty;
+
+            // Initialize Azure agent
+            var azureAgent = _azureChatAgentFactory(modelId, foundryEndpoint);
+            await azureAgent.InitializeAsync();
+            _azureAgents[sessionId] = azureAgent;
+
+            // Initialize tutor agent
+            var tutorAgent = _chatAgentFactory(modelId, openAiApiKey, braveApiKey, mem0ApiKey, name, instructions);
+            await tutorAgent.InitializeAsync(
+                name: "TutorAgent",
+                template: """
+                    You are a helpful tutor that will explain difficult concepts in {{$subject}}.
+
+                    Here is the learning profile of the user you will be interacting with: {{$profile}}.
+
+                    Be sure to use tools at your disposal to fetch latest information on this specific topic.
+                """,
+                args: new Dictionary<string, object>()
+                {
+                    {"subject","Information Theory"},
+                    {"profile","The user has a comp sci background and prefers examples."}
+                },
+                description: "Educational tutor that explains complex concepts and provides learning assistance"
+            );
+            _tutorAgents[sessionId] = tutorAgent;
+
+            // Initialize quiz agent
+            var quizAgent = _chatAgentFactory(modelId, openAiApiKey, braveApiKey, mem0ApiKey, name, instructions);
+            await quizAgent.InitializeAsync(
+                name: "QuizAgent",
+                template: """
+                    You are an assistant that will create quizes to help test a users understadning on: {{$subject}}.
+
+                    Here is the learning profile of the user you will be interacting with: {{$profile}}.
+
+                    Be sure to use tools at your disposal to fetch lastest information on this specific topic for the quiz.
+                """,
+                args: new Dictionary<string, object>()
+                {
+                    {"subject","Information Theory"},
+                    {"profile","The user has a comp sci background and prefers examples."}
+                },
+                description: "Quiz creation assistant that generates assessments and test questions"
+            );
+            _quizAgents[sessionId] = quizAgent;
+
+            _initializedSessions[sessionId] = true;
+        }
+
+        private async Task ProcessWithAIStreaming(string sessionId, IAsyncEnumerable<string> tokenStream)
         {
             var fullResponse = new System.Text.StringBuilder();
 
-            //Comment and uncomment foreach loop to send requets to different agents
-            
-            await foreach (var token in _azureAgent.GetTokenStreamAsync(message))
-            //await foreach (var token in _tutorAgent.GetTokenStreamAsync(message))
+            await foreach (var token in tokenStream)
             {
                 // Send each token as it arrives for real-time effect
                 await Clients.Group(sessionId).SendAsync("ReceiveStreamingChunk", token);

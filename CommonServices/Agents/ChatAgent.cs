@@ -10,7 +10,7 @@ using CommonServices.Services;
 
 namespace CommonServices.Agents
 {
-    public class TutorAgent
+    public class ChatAgent
     {
         private readonly Kernel _kernel;
         private ChatCompletionAgent? _chatAgent;
@@ -18,7 +18,12 @@ namespace CommonServices.Agents
         private readonly MemoryProvider _memoryProvider;
         private readonly PromptRenderer _promptRenderer;
 
-        public TutorAgent(string modelId, string openaiApiKey, string braveApiKey, string mem0ApiKey)
+        public ChatAgent(
+            string modelId,
+            string openaiApiKey,
+            string braveApiKey,
+            string mem0ApiKey
+        )
         {
             // Create kernel with OpenAI chat completion
             var builder = Kernel.CreateBuilder();
@@ -40,17 +45,22 @@ namespace CommonServices.Agents
             _thread = new ChatHistoryAgentThread();
         }
 
-        public async Task InitializeAsync()
+         public ChatCompletionAgent? GetAgent()
+        {
+            return _chatAgent ?? null;
+        }
+
+
+        public async Task<ChatCompletionAgent> InitializeAsync(string name, string template, Dictionary<string, object> args, string description = "")
         {
             // Clear previous memories
             await _memoryProvider.ClearProviderMemories();
-            
+
             // Get memory provider and add to thread
             var mem0Provider = _memoryProvider.GetMem0Provider();
             _thread.AIContextProviders.Add(mem0Provider);
 
-            // Render tutor prompt
-            string tutorPrompt = await _promptRenderer.RenderTutorPrompt();
+            var prompt = await _promptRenderer.RenderPrompt(template, args);
 
             // Enable planning
             OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
@@ -61,19 +71,19 @@ namespace CommonServices.Agents
             // Create the chat completion agent
             var chatAgent = new ChatCompletionAgent()
             {
-                Name = "TutorAgent",
-                Instructions = tutorPrompt,
+                Name = name,
+                Description = description,
+                Instructions = prompt,
                 Kernel = _kernel,
                 Arguments = new KernelArguments(openAIPromptExecutionSettings)
             };
 
             // Store reference to the agent
             _chatAgent = chatAgent;
+
+            return chatAgent;
         }
 
-        /// <summary>
-        /// Enhanced streaming method that properly handles tool calls for SignalR integration
-        /// </summary>
         public async IAsyncEnumerable<ChatMessageContent> GetResponseAsync(string userInput)
         {
             if (_chatAgent == null)

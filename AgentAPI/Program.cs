@@ -51,30 +51,16 @@ builder.Services.AddSignalR(options =>
     options.HandshakeTimeout = TimeSpan.FromSeconds(15);
 });
 
-// Register TutorAgent as a singleton
-builder.Services.AddSingleton<TutorAgent>(serviceProvider =>
-{
-    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    var modelId = configuration["OpenAI:ModelId"] ?? "gpt-4o-mini";
-    var openAiApiKey = configuration["OpenAI:ApiKey"] ?? throw new InvalidOperationException("OpenAI API key not configured");
-    var braveApiKey = configuration["Brave:ApiKey"] ?? throw new InvalidOperationException("Brave API key not configured");
-    var mem0ApiKey = configuration["Mem0:ApiKey"] ?? throw new InvalidOperationException("Mem0 API key not configured");
+builder.Services.AddTransient<Func<string, string, string, string, string, string, ChatAgent>>(serviceProvider =>
+    (modelId, openAiApiKey, braveApiKey, mem0ApiKey, name, instructions) =>
+        new ChatAgent(modelId, openAiApiKey, braveApiKey, mem0ApiKey)
+);
 
-    var agent = new TutorAgent(modelId, openAiApiKey, braveApiKey, mem0ApiKey);
-    // Initialize the agent - we'll do this async in the hub
-    return agent;
-});
+builder.Services.AddTransient<Func<string, string, AzureChatAgent>>(serviceProvider =>
+    (modelId, foundryEndpoint) =>
+        new AzureChatAgent(modelId, foundryEndpoint)
+);
 
-builder.Services.AddSingleton<AzureAgent>(serviceProvider =>
-{
-    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    var foundryEndpoint = configuration["AIFoundry:Endpoint"] ?? throw new InvalidOperationException("Azure AI Foundry endpoint not configured");
-    var modelId = configuration["OpenAI:ModelId"] ?? "gpt-4o-mini";
-
-    var azureAgent = new AzureAgent(modelId, foundryEndpoint);
-
-    return azureAgent;
-});
 
 // Add CORS for development
 builder.Services.AddCors(options =>

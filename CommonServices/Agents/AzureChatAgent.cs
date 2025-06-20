@@ -24,16 +24,11 @@ namespace CommonServices.Agents
         }
 
         //TODO: Accept agent configured in Azure, default to NBA agent if none provided
-        public async Task<AzureAIAgent> InitializeAsync()
+        public async Task<AzureAIAgent> InitializeAsync(string agentId)
         {
-            PersistentAgent definition = await _client.Administration.CreateAgentAsync(
-                model: _modelId,
-                name: "NBA Agent",
-                description: "An agent that talks to you about basketball",
-                instructions: "You are a friendly agent that talks basketball with the user"
-            );
+            PersistentAgent? agentDefinition = await _client.Administration.GetAgentAsync(agentId);
 
-            _azureAIAgent = new(definition, _client);
+            _azureAIAgent = new(agentDefinition, _client);
             _thread = new(_azureAIAgent.Client);
 
             return _azureAIAgent;

@@ -181,7 +181,7 @@ namespace CommonServices.Services
 
             // Initialize Azure agent
             var azureAgent = _azureChatAgentFactory(modelId, foundryEndpoint);
-            await azureAgent.InitializeAsync();
+            await azureAgent.InitializeAsync(agentId:"asst_mX8QoTHi8pBJelU0jMP0n17x");
             _azureAgents[sessionId] = azureAgent;
 
             // Initialize tutor agent
